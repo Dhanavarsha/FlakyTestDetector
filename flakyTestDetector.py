@@ -3,11 +3,11 @@ import yaml
 import tempfile
 import subprocess
 import os
-import sys
 import time
 import xml.etree.ElementTree as ET
 from distutils.dir_util import copy_tree
 from bug_tracking import trello 
+from ignore_tests import java
 
 def readconfig(config_file):
     with open(config_file) as file:
@@ -36,45 +36,27 @@ def commit_and_push(cwd):
     subprocess.check_output(["git", "checkout", "-b", branch_name], cwd=cwd)
     subprocess.check_output([ "git", "push", "origin", branch_name], cwd=cwd)
 
-def find_files(classname, working_dir):
-    output = subprocess.check_output(["git", "ls-files"], cwd=working_dir).decode(sys.stdout.encoding).strip()
-    files = output.split('\n')
-    filepaths = list(map(lambda relative_path: os.path.join(working_dir, relative_path), files))
-    filtered = list(filter(lambda filepath: classname in filepath, filepaths))
-    return filtered
-
-def create_inside_package_function(package_name):
-    def inside_package_filter(filepath):
-        with open(filepath) as f:
-            first_line = f.readline()
-            return "package {};".format(package_name) in first_line
-    return inside_package_filter
-    
-def ignore_annotation_string(test_function_string):
-    test_function_indentation = len(test_function_string) - len(test_function_string.lstrip())
-    string = "@Ignore\n"
-    for i in range(test_function_indentation):
-        string = " " + string
-    return string
-
-def ignore_test(fully_qualified_test_name, working_dir):
-    (package_name, class_name, test_name) = fully_qualified_test_name.rsplit('.', 2)
-    files = find_files(class_name, working_dir)
-    inside_package_lambda = create_inside_package_function(package_name)
-    
-    test_class_files = list(filter(inside_package_lambda, files))
-    assert len(test_class_files) == 1, "Expecting only 1 test-class for class-name: %r" % class_name
-    test_class_file = test_class_files[0]    
-    with open(test_class_file) as f:
-        lines = f.readlines()
-    for index in range(len(lines)):
-        if "public void {}()".format(test_name) in lines[index]:
-            test_function_line_number = index
-            break
-    assert test_function_line_number != -1, "Test name not present in the file"
-    lines.insert(test_function_line_number, ignore_annotation_string(lines[test_function_line_number]))
-    with open(test_class_file, "w") as f:
-        f.writelines(lines)
+def extract_test_results(number_of_invocations, test_report_backup):
+    test_results = {}
+    for i in range(number_of_invocations):
+        test_report_dir = test_report_backup + "/" + str(i)
+        for filename in  os.listdir(test_report_dir):
+            if filename.endswith(".xml"):
+                tree = ET.parse(test_report_dir + "/" + filename)
+                testsuite = tree.getroot()
+                for testCase in testsuite.findall('testcase'):
+                    testcase_name = testCase.get('name')
+                    testcase_class = testCase.get('classname')
+                    full_test_name_key = testcase_class + "." + testcase_name
+                    if full_test_name_key not in test_results:
+                        test_results[full_test_name_key] = []
+                    for child in testCase:
+                        if child.tag == "failure":
+                            failure_reason = child.get('message')
+                            if failure_reason is None:
+                                failure_reason = child.text
+                            test_results[full_test_name_key].append(failure_reason)
+    return test_results
 
 def detect_flaky_tests(temp_dir):
     config = readconfig("config.yaml")
@@ -122,7 +104,7 @@ def detect_flaky_tests(temp_dir):
                 print("{} is flaky".format(test))
                 t = trello.Trello(trello_config)
                 t.make_trello_task(test, test_results[test])
-                ignore_test(test, clone_dir_path)
+                java.ignore_test(test, clone_dir_path)
         if tests_are_flaky:
             commit_and_push(clone_dir_path)
 
