@@ -1,4 +1,5 @@
 #!/usr/local/bin/python3
+import argparse
 import yaml
 import tempfile
 import subprocess
@@ -10,9 +11,8 @@ from bug_tracking import trello
 from ignore_tests import java
 
 def readconfig(config_file):
-    with open(config_file) as file:
-        config = yaml.load(file, Loader=yaml.FullLoader)
-        return config
+    config = yaml.load(config_file, Loader=yaml.FullLoader)
+    return config
 
 def clone(repo_url, dir_path):
     try:
@@ -58,8 +58,8 @@ def extract_test_results(number_of_invocations, test_report_backup):
                             test_results[full_test_name_key].append(failure_reason)
     return test_results
 
-def detect_flaky_tests(temp_dir):
-    config = readconfig("config.yaml")
+def detect_flaky_tests(temp_dir, config_file):
+    config = readconfig(config_file)
     repo_url = config["repository"]
     test_command = config["command"]
     test_report = config["testreport"]
@@ -88,5 +88,8 @@ def detect_flaky_tests(temp_dir):
         if tests_are_flaky:
             commit_and_push(clone_dir_path)
 
+parser = argparse.ArgumentParser(description='Detects flaky tests')
+parser.add_argument("--config-file", help="Provide the config file to use", required=True, type=argparse.FileType('r'))
+args = parser.parse_args()
 with tempfile.TemporaryDirectory() as temp_dir:
-    detect_flaky_tests(temp_dir)
+    detect_flaky_tests(temp_dir, args.config_file)
