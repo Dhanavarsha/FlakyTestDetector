@@ -76,27 +76,7 @@ def detect_flaky_tests(temp_dir):
             os.mkdir(toDirectory)
             fromDirectory = clone_dir_path + "/" + test_report
             copy_tree(fromDirectory, toDirectory)
-
-        test_results = {}
-        for i in range(number_of_invocations):
-            test_report_dir = test_report_backup + "/" + str(i)
-            for filename in  os.listdir(test_report_dir):
-                if filename.endswith(".xml"):
-                    tree = ET.parse(test_report_dir + "/" + filename)
-                    testsuite = tree.getroot()
-                    for testCase in testsuite.findall('testcase'):
-                        testcase_name = testCase.get('name')
-                        testcase_class = testCase.get('classname')
-                        full_test_name_key = testcase_class + "." + testcase_name
-                        if full_test_name_key not in test_results:
-                            test_results[full_test_name_key] = []
-                        for child in testCase:
-                            if child.tag == "failure":
-                                failure_reason = child.get('message')
-                                if failure_reason is None:
-                                    failure_reason = child.text
-
-                                test_results[full_test_name_key].append(failure_reason)
+        test_results = extract_test_results(number_of_invocations, test_report_backup)
         tests_are_flaky = False
         for test in test_results:
             if len(test_results[test]) != number_of_invocations and len(test_results[test]) != 0:
