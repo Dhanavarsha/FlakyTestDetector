@@ -11,16 +11,16 @@ import junit
 def detect_flaky_tests(temp_dir, config_file):
     config = Config(config_file)
     number_of_invocations = int(config.numberOfInvocations)
-    clone_dir_path = temp_dir + "/cloned"
-    test_report_backup = temp_dir + "/backup"
+    clone_dir_path = os.path.join(temp_dir, "cloned")
+    test_report_backup = os.path.join(temp_dir, "backup")
     clone_success = _clone(config.repository, clone_dir_path)
     if clone_success:
         os.mkdir(test_report_backup)
         for i in range(number_of_invocations):
             _execute_test(config.command, cwd=clone_dir_path)
-            toDirectory = test_report_backup + "/" + str(i)
+            toDirectory = os.path.join(test_report_backup, str(i))
             os.mkdir(toDirectory)
-            fromDirectory = clone_dir_path + "/" + config.testreport
+            fromDirectory = os.path.join(clone_dir_path, config.testreport)
             copy_tree(fromDirectory, toDirectory)
         test_results = junit.extract_test_results(number_of_invocations, test_report_backup)
         tests_are_flaky = False
