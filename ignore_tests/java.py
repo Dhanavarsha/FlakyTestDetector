@@ -1,6 +1,7 @@
 import subprocess
 import sys
 import os
+import pretty_print
 
 def ignore_test(fully_qualified_test_name, working_dir):
     (package_name, class_name, test_name) = fully_qualified_test_name.rsplit('.', 2)
@@ -17,6 +18,7 @@ def ignore_test(fully_qualified_test_name, working_dir):
             test_function_line_number = index
             break
     assert test_function_line_number != -1, "Test name not present in the file"
+    pretty_print.success("Ignoring {} in file: {}".format(test_name, test_class_file))
     lines.insert(test_function_line_number, _ignore_annotation_string(lines[test_function_line_number]))
     with open(test_class_file, "w") as f:
         f.writelines(lines)

@@ -1,13 +1,15 @@
 import requests
+import pretty_print
 
 class Trello:
-    
+
     BASE_URL = "https://api.trello.com/1/"
 
     def __init__(self, trello_config):
         self.trello_config = trello_config
 
     def make_trello_task(self, testcase_name, failures):
+        pretty_print.status("Creating a trello task for the flaky test {}".format(testcase_name))
         list_id = self._get_list_id()
         standard_desc = "The flaky-test-detector observed the following failures:\n"
         for failure in failures:
