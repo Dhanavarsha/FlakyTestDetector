@@ -9,10 +9,7 @@ import xml.etree.ElementTree as ET
 from distutils.dir_util import copy_tree
 from bug_tracking import trello 
 from ignore_tests import java
-
-def readconfig(config_file):
-    config = yaml.load(config_file, Loader=yaml.FullLoader)
-    return config
+from config import Config
 
 def clone(repo_url, dir_path):
     try:
@@ -59,22 +56,18 @@ def extract_test_results(number_of_invocations, test_report_backup):
     return test_results
 
 def detect_flaky_tests(temp_dir, config_file):
-    config = readconfig(config_file)
-    repo_url = config["repository"]
-    test_command = config["command"]
-    test_report = config["testreport"]
-    trello_config = config["trello"]
-    number_of_invocations = int(config["numberOfInvocations"])
+    config = Config(config_file)
+    number_of_invocations = int(config.numberOfInvocations)
     clone_dir_path = temp_dir + "/cloned"
     test_report_backup = temp_dir + "/backup"
-    clone_success = clone(repo_url, clone_dir_path)
+    clone_success = clone(config.repository, clone_dir_path)
     if clone_success:
         os.mkdir(test_report_backup)
         for i in range(number_of_invocations):
-            execute_test(test_command, clone_dir_path)
+            execute_test(config.command, clone_dir_path)
             toDirectory = test_report_backup + "/" + str(i)
             os.mkdir(toDirectory)
-            fromDirectory = clone_dir_path + "/" + test_report
+            fromDirectory = clone_dir_path + "/" + config.testreport
             copy_tree(fromDirectory, toDirectory)
         test_results = extract_test_results(number_of_invocations, test_report_backup)
         tests_are_flaky = False
@@ -82,7 +75,7 @@ def detect_flaky_tests(temp_dir, config_file):
             if len(test_results[test]) != number_of_invocations and len(test_results[test]) != 0:
                 tests_are_flaky = True
                 print("{} is flaky".format(test))
-                t = trello.Trello(trello_config)
+                t = trello.Trello(config.trello)
                 t.make_trello_task(test, test_results[test])
                 java.ignore_test(test, clone_dir_path)
         if tests_are_flaky:
