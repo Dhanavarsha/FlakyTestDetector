@@ -7,6 +7,7 @@ from ignore_tests import java
 from config import Config
 import pretty_print
 import junit
+from github import Github
 
 def detect_flaky_tests(temp_dir, config_file):
     config = Config(config_file)
@@ -32,7 +33,14 @@ def detect_flaky_tests(temp_dir, config_file):
                 t.make_trello_task(test, test_results[test])
                 java.ignore_test(test, clone_dir_path)
         if tests_are_flaky:
-            _commit_and_push(clone_dir_path)
+            branch_name = _commit_and_push(clone_dir_path)
+            github = Github(config.github)
+            github.create_pull_request(repository = config.repository, 
+                                                                title = 'Ignoring flaky tests', 
+                                                                body = 'Mark `@Ignore` for flaky tests', 
+                                                                branch_name = branch_name, 
+                                                                base_branch = 'master')
+            
 
 def _execute_command(command, cwd=None, failure_message=None):
     shell = isinstance(command, str)
@@ -60,3 +68,4 @@ def _commit_and_push(cwd):
     _execute_command([ "git", "commit", "-am", "Ignoring flaky tests"], cwd=cwd)
     _execute_command(["git", "checkout", "-b", branch_name], cwd=cwd)
     _execute_command([ "git", "push", "origin", branch_name], cwd=cwd)
+    return branch_name
